@@ -90,6 +90,12 @@ fn get_wasi_sdk_path() -> PathBuf {
         .unwrap_or_else(download_wasi_sdk)
 }
 
+fn get_vita_sdk_path() -> PathBuf {
+    std::env::var_os("VITASDK")
+        .map(PathBuf::from)
+        .unwrap()
+}
+
 fn main() {
     #[cfg(feature = "logging")]
     pretty_env_logger::init();
@@ -224,6 +230,14 @@ fn main() {
         env::set_var("CFLAGS", &sysroot);
         bindgen_cflags.push(sysroot);
     }
+    if env::var("TARGET").unwrap().starts_with("armv7-sony-vita-newlibeabihf") {
+        let vita_sdk_path = get_vita_sdk_path();
+        env::set_var("CC", vita_sdk_path.join("bin/arm-vita-eabi-gcc").to_str().unwrap());
+        env::set_var("AR", vita_sdk_path.join("bin/arm-vita-eabi-gcc-ar").to_str().unwrap());
+        let sysroot = "-fno-pic".to_string();
+        env::set_var("CFLAGS", &sysroot);
+        bindgen_cflags.push(sysroot);
+    }
 
     // generating bindings
     bindgen(
@@ -300,7 +314,11 @@ where
     K: AsRef<str> + 'a,
     V: AsRef<str> + 'a,
 {
-    let target = env::var("TARGET").unwrap();
+    let target = if env::var("TARGET").unwrap().starts_with("armv7-sony-vita-newlibeabihf") {
+        "armv7a-none-eabihf".to_string()
+    } else {
+        env::var("TARGET").unwrap()
+    };
     let out_dir = out_dir.as_ref();
     let header_file = header_file.as_ref();
 
@@ -337,6 +355,14 @@ where
     if env::var("CARGO_CFG_TARGET_OS").unwrap() == "wasi" {
         builder = builder.clang_arg("-fvisibility=default");
     }
+    if env::var("TARGET").unwrap().starts_with("armv7-sony-vita-newlibeabihf") {
+        let vita_sdk_path = get_vita_sdk_path();
+        builder = builder
+            .clang_arg(format!("-I{}", vita_sdk_path.join("arm-vita-eabi/include").display()))
+            .clang_arg(format!("-I{}", vita_sdk_path.join("lib/gcc/arm-vita-eabi/10.3.0/include").display()))
+            .clang_arg(format!("-I{}", vita_sdk_path.join("lib/gcc/arm-vita-eabi/10.3.0/include-fixed").display()));
+    }
+
 
     let bindings = builder.generate().expect("Unable to generate bindings");
 
