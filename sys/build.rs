@@ -129,7 +129,7 @@ fn main() {
 
     let header_files = [
         "builtin-array-fromasync.h",
-        "xsum.h",
+        "dtoa.h",
         "libregexp-opcode.h",
         "libregexp.h",
         "libunicode-table.h",
@@ -147,7 +147,7 @@ fn main() {
         "libunicode.c",
         "cutils.c",
         "quickjs.c",
-        "xsum.c",
+        "dtoa.c",
     ];
 
     let mut defines: Vec<(String, Option<&str>)> = vec![("_GNU_SOURCE".into(), None)];
@@ -314,13 +314,19 @@ where
     K: AsRef<str> + 'a,
     V: AsRef<str> + 'a,
 {
-    let target = if env::var("TARGET").unwrap().starts_with("armv7-sony-vita-newlibeabihf") {
+    let mut target = if env::var("TARGET").unwrap().starts_with("armv7-sony-vita-newlibeabihf") {
         "armv7a-none-eabihf".to_string()
     } else {
         env::var("TARGET").unwrap()
     };
     let out_dir = out_dir.as_ref();
     let header_file = header_file.as_ref();
+
+    // *-pc-windows-gnullvm is special for Rust, Clang accepts only
+    // *-pc-windows-gnu
+    if target.ends_with("windows-gnullvm") {
+        target = target.replace("llvm", "");
+    }
 
     let mut cflags = vec![format!("--target={}", target)];
     cflags.append(&mut add_cflags);
